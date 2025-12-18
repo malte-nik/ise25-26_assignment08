@@ -173,4 +173,49 @@ public class ReviewServiceTest {
         // then
         assertTrue(updatedReview.approved());
     }
+    @Test
+    void upsertFailsIfPosIdIsNull() {
+        Review original = TestFixtures.getReviewFixtures().getFirst();
+
+        Review review = original.toBuilder()
+                .pos(original.pos().toBuilder().id(null).build())
+                .build();
+
+        assertThrows(NullPointerException.class, () -> reviewService.upsert(review));
+    }
+    @Test
+    void upsertSuccessfulIfFirstReviewForPos() {
+        Review review = TestFixtures.getReviewFixtures().getFirst();
+        Pos pos = review.pos();
+
+        when(posDataService.getById(pos.getId())).thenReturn(pos);
+        when(reviewDataService.filter(pos, review.author())).thenReturn(List.of());
+        when(reviewDataService.upsert(review)).thenReturn(review);
+
+        Review result = reviewService.upsert(review);
+
+        verify(reviewDataService).upsert(review);
+        assertThat(result).isEqualTo(review);
+    }
+    @Test
+    void filterFailsIfPosDoesNotExist() {
+        when(posDataService.getById(999L))
+                .thenThrow(new NotFoundException(Pos.class, 999L));
+
+        assertThrows(NotFoundException.class,
+                () -> reviewService.filter(999L, true));
+    }
+    @Test
+    void approveFailsIfReviewIdIsNull() {
+        Review review = TestFixtures.getReviewFixtures().getFirst()
+                .toBuilder()
+                .id(null)
+                .build();
+
+        User user = TestFixtures.getUserFixtures().getFirst();
+        when(userDataService.getById(user.getId())).thenReturn(user);
+
+        assertThrows(NullPointerException.class,
+                () -> reviewService.approve(review, user.getId()));
+    }
 }
